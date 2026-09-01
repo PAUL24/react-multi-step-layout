@@ -2,7 +2,7 @@
 
 A production-ready, flexible, and accessible Multi-Step Layout architecture for React 18+ and TypeScript. Built with fluid animations powered by Motion, responsive progress tracking, conditional validation gating, full keyboard navigation, and automatic local storage state persistence.
 
----
+------
 
 ## Features
 
