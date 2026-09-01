@@ -18,7 +18,7 @@ A production-ready, flexible, and accessible Multi-Step Layout architecture for 
 - **Full TypeScript Generics**: Strictly typed data payloads and step validators.
 - **Automated Test Suite**: Unit tests verifying progression, validation blocking, persistence, keyboard navigation, and edge cases.
 
----
+------
 
 ## Installation & Setup
 
