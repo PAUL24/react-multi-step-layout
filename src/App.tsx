@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
-import { User, Layers, ShieldCheck, CheckSquare, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { User, Layers, ShieldCheck, CheckSquare } from 'lucide-react';
 import { StepDefinition } from './types/stepper';
 import { MultiStepProvider } from './components/stepper/MultiStepContext';
 import { MultiStepLayout } from './components/stepper/MultiStepLayout';
-import { StepContent } from './components/stepper/StepContent';
-import { StepControls } from './components/stepper/StepControls';
 import { AccountInfoStep, AccountFormData } from './components/demo/steps/AccountInfoStep';
 import { ProjectDetailsStep, ProjectFormData } from './components/demo/steps/ProjectDetailsStep';
 import { SecurityConfigStep, SecurityFormData } from './components/demo/steps/SecurityConfigStep';
@@ -46,10 +44,9 @@ export default function App() {
   const [completedData, setCompletedData] = useState<WizardFormData | null>(null);
   const [allowNonLinear, setAllowNonLinear] = useState(false);
   const [persistState, setPersistState] = useState(true);
-  const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
 
   // Step definitions with conditional validation functions
-  const steps: StepDefinition<WizardFormData>[] = [
+  const steps = useMemo<StepDefinition<WizardFormData>[]>(() => [
     {
       id: 'account',
       title: 'Account & Organization',
@@ -108,6 +105,8 @@ export default function App() {
       subLabel: 'Governance',
       icon: ShieldCheck,
       component: SecurityConfigStep,
+      // Non-production environments skip governance configuration entirely.
+      isEnabled: (data) => data.project.environment === 'production',
       validate: (data) => {
         const errors: Record<string, string> = {};
         const security = data.security;
@@ -134,7 +133,7 @@ export default function App() {
         return Object.keys(errors).length > 0 ? errors : true;
       },
     },
-  ];
+  ], []);
 
   const handleComplete = (finalData: WizardFormData) => {
     setCompletedData(finalData);
@@ -142,11 +141,6 @@ export default function App() {
 
   const handleRestart = () => {
     setCompletedData(null);
-    try {
-      window.localStorage.removeItem('multistep_wizard_state');
-    } catch {
-      // ignore
-    }
   };
 
   return (
@@ -163,7 +157,7 @@ export default function App() {
                 MultiStep Component
               </span>
               <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                v2.4.0
+                v1.0.0
               </span>
             </div>
             <p className="text-[11px] text-slate-500 hidden sm:block">
@@ -176,8 +170,8 @@ export default function App() {
         <div className="flex items-center gap-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-xs font-semibold">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="hidden sm:inline">10/10 Core Tests Passing</span>
-            <span className="sm:hidden">10/10 Passing</span>
+            <span className="hidden sm:inline">Production-ready engine</span>
+            <span className="sm:hidden">Ready</span>
           </div>
         </div>
       </header>
@@ -192,9 +186,12 @@ export default function App() {
             steps={steps}
             initialData={INITIAL_FORM_DATA}
             storageKey="multistep_wizard_state"
+            storageType="sessionStorage"
             persistState={persistState}
             allowNonLinearNavigation={allowNonLinear}
-            orientation={orientation}
+            syncWithUrl
+            stepQueryParam="step"
+            urlStepMode="id"
             onComplete={handleComplete}
           >
             <div className="space-y-6">
@@ -204,12 +201,7 @@ export default function App() {
                 nextLabel="Continue"
                 prevLabel="Back"
                 submitLabel="Finish Setup"
-              >
-                <div className="w-full">
-                  <StepContent className="min-h-[280px]" />
-                  <StepControls />
-                </div>
-              </MultiStepLayout>
+              />
 
               {/* Live State & Developer Telemetry Inspector */}
               <DemoControls
@@ -217,8 +209,6 @@ export default function App() {
                 setAllowNonLinear={setAllowNonLinear}
                 persistState={persistState}
                 setPersistState={setPersistState}
-                orientation={orientation}
-                setOrientation={setOrientation}
               />
             </div>
           </MultiStepProvider>
@@ -227,7 +217,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 px-6 text-center text-xs text-slate-500">
-        Multi-Step Layout Component with Hook-based navigation, conditional validation gating & local storage persistence.
+        Typed multi-step layout with conditional navigation, validation, URL history, and session persistence.
       </footer>
     </div>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Server, Globe, Sparkles, AlertCircle } from 'lucide-react';
+import { Globe, Sparkles, AlertCircle } from 'lucide-react';
 import { useMultiStep } from '../../stepper/useMultiStep';
 
 export interface ProjectFormData {
@@ -23,7 +23,10 @@ export const ProjectDetailsStep: React.FC = () => {
     domainName: '',
   };
 
-  const handleChange = (field: keyof ProjectFormData, value: any) => {
+  const handleChange = <K extends keyof ProjectFormData>(
+    field: K,
+    value: ProjectFormData[K]
+  ) => {
     const current = formData.project || {
       projectName: '',
       environment: 'development',
@@ -39,7 +42,11 @@ export const ProjectDetailsStep: React.FC = () => {
     });
   };
 
-  const frameworks = [
+  const frameworks: Array<{
+    id: ProjectFormData['framework'];
+    name: string;
+    desc: string;
+  }> = [
     { id: 'react', name: 'React SPA', desc: 'Vite + React with motion animations' },
     { id: 'nextjs', name: 'Next.js App', desc: 'Full-stack React with SSR' },
     { id: 'node', name: 'Express API', desc: 'Lightweight Node.js backend' },

@@ -150,7 +150,7 @@ export const AccountInfoStep: React.FC = () => {
         {/* Professional Polish Informative Callout */}
         <div className="flex items-center space-x-2 text-xs sm:text-sm text-slate-600 bg-blue-50/80 p-3 rounded-md border border-blue-100 mt-2">
           <Info className="w-4 h-4 text-blue-600 shrink-0" />
-          <span>Progress is automatically synced and persisted across browser sessions.</span>
+          <span>Progress is synced to the URL and saved for this browser session.</span>
         </div>
       </div>
     </div>

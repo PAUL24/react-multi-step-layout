@@ -1,307 +1,255 @@
-# React + TypeScript Multi-Step Layout & Wizard Component
+# React Multi-Step Layout
 
-A production-ready, flexible, and accessible Multi-Step Layout architecture for React 18+ and TypeScript. Built with fluid animations powered by Motion, responsive progress tracking, conditional validation gating, full keyboard navigation, and automatic local storage state persistence.
+A production-oriented React + TypeScript wizard engine with a centralized Context store, conditional branches, step validation, session persistence, URL history, accessible focus management, and Motion transitions.
 
-------
+## What is included
 
-## Features
+- One typed store shared by every step through `useMultiStep<TData>()`.
+- Automatic `sessionStorage` persistence with schema versioning and safe recovery.
+- Automatic draft cleanup after `onComplete` resolves successfully. Failed submissions retain the draft.
+- `shouldSkip` and `isEnabled` predicates that are re-evaluated whenever form data changes.
+- Next, previous, indicator, reset, deep-link, and browser-history navigation that all understand active steps.
+- Synchronous or asynchronous step validators with field-level and form-level errors.
+- Stable step-ID bookmarks such as `?step=security`, or optional 1-based indexes such as `?step=3`.
+- `aria-current="step"`, invalid/disabled indicator state, live announcements, keyboard controls, and heading focus after transitions.
+- Direction-aware Motion animations with `prefers-reduced-motion` support.
+- Strict generic TypeScript contracts for data, step components, predicates, validators, and callbacks.
 
-- **Fluid Animated Progress Track**: Smooth, spring-animated completion track bar with dynamic percentage calculation and step indicator nodes.
-- **Clean Hook-Based Control (`useMultiStep`)**: Exposes `nextStep()`, `prevStep()`, `goToStep(index)`, `resetProgress()`, `formData`, `updateFormData()`, and error dispatchers to any child step component.
-- **Conditional Validation Engine**: Prevents step advancement if the step's data fails synchronous or asynchronous validation rules. Supports field-level error mapping with auto-clearing upon field modification.
-- **Accessibility & Focus Management**: Full WCAG 2.1 AA compliance with ARIA landmarks (`role="progressbar"`, `role="tablist"`, `role="tabpanel"`), live region announcements (`aria-live="polite"`), and programmatic focus management.
-- **Keyboard Navigation**:
-  - `Alt + →` / `Ctrl + Enter`: Advance to the next step
-  - `Alt + ←`: Return to the previous step
-  - `ArrowLeft` / `ArrowRight` / `Home` / `End`: Navigate through progress track step tabs
-- **Local Storage State Recovery**: Automatically persists form progress and current step state across browser refreshes with cache versioning and safe quota fallback.
-- **Full TypeScript Generics**: Strictly typed data payloads and step validators.
-- **Automated Test Suite**: Unit tests verifying progression, validation blocking, persistence, keyboard navigation, and edge cases.
-
-------
-
-## Installation & Setup
-
-Ensure all peer dependencies are available in your project:
+## Run the example
 
 ```bash
-npm install react react-dom motion lucide-react
+git clone https://github.com/PAUL24/react-multi-step-layout.git
+cd react-multi-step-layout
+npm install
+npm run dev
 ```
 
-### Development Scripts
+Verification commands:
 
 ```bash
-# Start development server
-npm run dev
-
-# Run unit tests
+npm run typecheck
 npm test
-
-# Check TypeScript type safety
-npm run lint
-
-# Build for production
 npm run build
 ```
 
----
-
-## Quick Start Example
+## Typed example
 
 ```tsx
-import React from 'react';
-import { MultiStepLayout, useMultiStep, StepDefinition } from './components/stepper';
+import type { StepComponentProps, StepDefinition } from './components/stepper';
+import { MultiStepLayout } from './components/stepper';
 
-interface UserOnboardingData {
+interface OnboardingData {
   profile: {
-    fullName: string;
+    name: string;
     email: string;
   };
-  preferences: {
-    notifications: boolean;
+  plan: 'starter' | 'enterprise';
+  security: {
+    requireSso: boolean;
   };
 }
 
-// 1. Define Step Components using useMultiStep
-const ProfileStep: React.FC = () => {
-  const { formData, updateFormData, errors } = useMultiStep<UserOnboardingData>();
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium">Full Name</label>
-        <input
-          type="text"
-          value={formData.profile.fullName}
-          onChange={(e) =>
-            updateFormData({
-              profile: { ...formData.profile, fullName: e.target.value },
-            })
-          }
-          className="w-full border rounded-lg p-2"
-        />
-        {errors.fullName && <p className="text-xs text-red-600">{errors.fullName}</p>}
-      </div>
-    </div>
-  );
-};
-
-const PreferencesStep: React.FC = () => {
-  const { formData, updateFormData } = useMultiStep<UserOnboardingData>();
-
+function ProfileStep({
+  data,
+  updateData,
+  errors,
+}: StepComponentProps<OnboardingData>) {
   return (
     <div>
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={formData.preferences.notifications}
-          onChange={(e) =>
-            updateFormData({
-              preferences: { notifications: e.target.checked },
-            })
-          }
-        />
-        <span>Enable email notifications</span>
-      </label>
+      <label htmlFor="name">Name</label>
+      <input
+        id="name"
+        value={data.profile.name}
+        aria-invalid={Boolean(errors.name)}
+        aria-describedby={errors.name ? 'name-error' : undefined}
+        onChange={(event) => updateData({
+          profile: { ...data.profile, name: event.target.value },
+        })}
+      />
+      {errors.name && <p id="name-error">{errors.name}</p>}
     </div>
   );
-};
+}
 
-// 2. Define Step Configurations & Validation
-const steps: StepDefinition<UserOnboardingData>[] = [
+function SecurityStep({ data, updateData }: StepComponentProps<OnboardingData>) {
+  return (
+    <label>
+      <input
+        type="checkbox"
+        checked={data.security.requireSso}
+        onChange={(event) => updateData({
+          security: { requireSso: event.target.checked },
+        })}
+      />
+      Require single sign-on
+    </label>
+  );
+}
+
+function ReviewStep({ data }: StepComponentProps<OnboardingData>) {
+  return <pre>{JSON.stringify(data, null, 2)}</pre>;
+}
+
+const steps: StepDefinition<OnboardingData>[] = [
   {
     id: 'profile',
-    title: 'Personal Profile',
-    description: 'Enter your basic details',
+    title: 'Profile',
     component: ProfileStep,
     validate: (data) => {
-      if (!data.profile?.fullName || data.profile.fullName.length < 2) {
-        return { fullName: 'Full name must be at least 2 characters.' };
+      const errors: Record<string, string> = {};
+      if (data.profile.name.trim().length < 2) {
+        errors.name = 'Enter at least two characters.';
       }
-      return true;
+      if (!data.profile.email.includes('@')) {
+        errors.email = 'Enter a valid email address.';
+      }
+      return Object.keys(errors).length === 0 ? true : errors;
     },
   },
   {
-    id: 'preferences',
-    title: 'Preferences',
-    description: 'Set your notification options',
-    component: PreferencesStep,
+    id: 'security',
+    title: 'Enterprise security',
+    component: SecurityStep,
+    // This branch disappears from Next/Previous navigation for starter plans.
+    isEnabled: (data) => data.plan === 'enterprise',
+  },
+  {
+    id: 'review',
+    title: 'Review',
+    component: ReviewStep,
   },
 ];
 
-// 3. Render the MultiStepLayout Component
+const initialData: OnboardingData = {
+  profile: { name: '', email: '' },
+  plan: 'starter',
+  security: { requireSso: false },
+};
+
+async function submitOnboarding(data: OnboardingData) {
+  const response = await fetch('/api/onboarding', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Could not save onboarding data.');
+}
+
 export default function App() {
-  const initialData: UserOnboardingData = {
-    profile: { fullName: '', email: '' },
-    preferences: { notifications: true },
-  };
-
-  const handleComplete = (finalData: UserOnboardingData) => {
-    console.log('Wizard Completed:', finalData);
-  };
-
   return (
-    <MultiStepLayout<UserOnboardingData>
+    <MultiStepLayout<OnboardingData>
       steps={steps}
       initialData={initialData}
-      storageKey="user_onboarding_draft"
-      persistState={true}
-      onComplete={handleComplete}
-      nextLabel="Continue"
-      prevLabel="Back"
-      submitLabel="Complete Setup"
+      storageKey="onboarding-draft-v1"
+      storageVersion={1}
+      persistState
+      storageType="sessionStorage"
+      syncWithUrl
+      stepQueryParam="step"
+      urlStepMode="id"
+      onComplete={async (data) => {
+        await submitOnboarding(data);
+        // The draft is cleared only after this promise resolves.
+      }}
     />
   );
 }
 ```
 
----
+Step components can receive strongly typed props as above or call the store directly:
 
-## API Reference
-
-### `<MultiStepLayout<TData> />` Props
-
-| Prop | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `steps` | `StepDefinition<TData>[]` | **Required** | Array of step configurations and validation rules. |
-| `initialData` | `TData` | **Required** | Initial state structure for the multi-step form. |
-| `initialStep` | `number` | `0` | Default active step index on initial mount. |
-| `storageKey` | `string` | `'multistep_wizard_state'` | LocalStorage key used to persist state. |
-| `storageVersion` | `number` | `1` | Incrementing version to invalidate outdated caches. |
-| `persistState` | `boolean` | `true` | Toggle automatic draft saving to LocalStorage. |
-| `allowNonLinearNavigation` | `boolean` | `false` | Allow freely jumping to unvisited steps without strict sequential validation. |
-| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Layout orientation for progress indicators. |
-| `onStepChange` | `(step: number, data: TData) => void` | `undefined` | Callback fired on step transition. |
-| `onComplete` | `(data: TData) => void \| Promise<void>` | `undefined` | Callback executed on final step submission. |
-| `showProgressTrack` | `boolean` | `true` | Show or hide the top progress track bar. |
-| `showControls` | `boolean` | `true` | Show or hide the default navigation controls footer. |
-| `nextLabel` | `string` | `'Continue'` | Custom label for Next button. |
-| `prevLabel` | `string` | `'Back'` | Custom label for Previous button. |
-| `submitLabel` | `string` | `'Finish Setup'` | Custom label for final Submit button. |
-
----
-
-### `useMultiStep<TData>()` Hook Return Values
-
-Child views and custom control components can access the wizard state via `useMultiStep()`:
-
-```typescript
-const {
-  currentStep,           // number: 0-indexed active step
-  totalSteps,            // number: total count of steps
-  currentStepConfig,     // StepDefinition<TData>: current step metadata
-  progress,              // number: 0 - 100 percentage
-  isFirstStep,           // boolean: true if on step 0
-  isLastStep,            // boolean: true if on final step
-  isCompleted,           // boolean: true if all steps validated
-  completedSteps,        // number[]: list of completed step indices
-  visitedSteps,          // number[]: list of visited step indices
-  formData,              // TData: reactive form data state
-  updateFormData,        // (patch: Partial<TData>) => void
-  resetProgress,         // () => void: reset form state and clear storage
-  nextStep,              // () => Promise<boolean>: validate and advance
-  prevStep,              // () => void: navigate to previous step
-  goToStep,              // (index: number) => Promise<boolean>: jump to step
-  errors,                // Record<string, string>: current validation errors
-  setFieldError,         // (field: string, msg: string) => void
-  clearFieldError,       // (field: string) => void
-  clearErrors,           // () => void
-  isValidating,          // boolean: true during async validation
-  isSubmitting,          // boolean: true during final submission
-  direction,             // 1 | -1: slide transition direction
-  lastSavedAt,           // number | null: last localStorage save timestamp
-  clearPersistedStorage, // () => void: clear cached storage
-} = useMultiStep<TData>();
+```tsx
+const { formData, updateFormData, errors, nextStep } =
+  useMultiStep<OnboardingData>();
 ```
 
----
+## Step contract
 
-## Step Validation Recipes
-
-### 1. Synchronous Validation with Field Mapping
-
-Return an object with field names and error messages:
-
-```typescript
-validate: (data) => {
-  const errors: Record<string, string> = {};
-  if (!data.email.includes('@')) {
-    errors.email = 'Please provide a valid email.';
-  }
-  return Object.keys(errors).length > 0 ? errors : true;
+```ts
+interface StepDefinition<TData> {
+  id: string;
+  title: string;
+  description?: string;
+  component: React.ComponentType<StepComponentProps<TData>> | React.ReactNode;
+  validate?: (data: TData, context: ValidationContext<TData>) =>
+    | ValidationResult
+    | Promise<ValidationResult>;
+  shouldSkip?: (data: TData, context: StepEvaluationContext<TData>) => boolean;
+  isEnabled?: (data: TData, context: StepEvaluationContext<TData>) => boolean;
+  optional?: boolean;
 }
 ```
 
-### 2. Async API Validation
+`shouldSkip` and `isEnabled` are synchronous because they define the render-time navigation graph. Validators may be asynchronous. A validator can return:
 
-Return a Promise resolving to `true` or an error object:
+- `true`, `null`, or `undefined` for success;
+- `false` for the default form-level error;
+- a string for a custom form-level error; or
+- a `Record<string, string>` for field errors.
 
-```typescript
-validate: async (data) => {
-  const isAvailable = await checkUsernameAvailability(data.username);
-  if (!isAvailable) {
-    return { username: 'This username is already taken.' };
-  }
-  return true;
-}
-```
+## Main component API
 
----
+| Prop | Default | Purpose |
+| --- | --- | --- |
+| `steps` | required | Strictly typed step configuration array. |
+| `initialData` | required | Complete initial wizard data object. |
+| `initialStep` | `0` | Initial configuration-array index when no stored or URL step exists. |
+| `persistState` | `true` | Enables automatic draft persistence. |
+| `storageType` | `sessionStorage` | May be changed to `localStorage` for an explicitly long-lived draft. |
+| `storageKey` | `multistep_wizard_state` | Storage namespace for this wizard. |
+| `storageVersion` | `1` | Invalidates incompatible stored payloads. |
+| `syncWithUrl` | `true` | Reads/writes the active step query parameter and listens for `popstate`. |
+| `stepQueryParam` | `step` | Query parameter name. Existing query parameters are preserved. |
+| `urlStepMode` | `id` | Uses stable IDs; `index` writes and reads 1-based indexes. |
+| `allowNonLinearNavigation` | `false` | Allows forward indicator jumps without validating intermediate steps. |
+| `onStepChange` | — | Receives the configuration index and current typed data. |
+| `onComplete` | — | Runs after final validation; draft cleanup follows successful resolution. |
+| `showProgressTrack` | `true` | Shows progress and step indicators. |
+| `showControls` | `true` | Shows the default navigation footer. |
 
-## Keyboard Shortcuts
+URL navigation represents user intent and therefore bypasses forward validation; the current step still validates when the user presses Next or submits. A URL that targets a disabled branch resolves to the nearest active step.
 
-| Shortcut | Action |
-| :--- | :--- |
-| `Alt + →` | Validate and advance to the next step. |
-| `Alt + ←` | Go back to the previous step. |
-| `Ctrl + Enter` / `Cmd + Enter` | Quick submit / advance while focused inside input fields. |
-| `ArrowLeft` / `ArrowRight` | Move focus between step indicators in the progress bar. |
-| `Home` / `End` | Focus the first or last step indicator in the progress bar. |
+## Store API
 
----
+`useMultiStep<TData>()` exposes:
 
-## Architecture & File Structure
+- Navigation: `nextStep`, `prevStep`, `goToStep`, `resetProgress`.
+- Data: `formData`, `updateFormData`.
+- Graph: `steps`, `activeSteps`, `activeStepIndices`, `isStepEnabled`.
+- Position: `currentStep`, `currentStepPosition`, `activeStepCount`, `progress`.
+- Validation: `errors`, `invalidSteps`, `validateCurrentStep`, field-error helpers.
+- Lifecycle: `isValidating`, `isSubmitting`, `hasSubmitted`, `clearPersistedStorage`.
 
-```
+`currentStep` and the arrays of completed/visited/invalid steps use indexes from the original configuration. `currentStepPosition` is the position within the currently active branch.
+
+## Accessibility and keyboard behavior
+
+- Active indicators use `aria-current="step"` and tab relationships.
+- Skipped indicators use native `disabled` plus `aria-disabled`.
+- Failed steps expose `aria-invalid` and a persistent visual error state.
+- New step headings receive focus after the entering animation finishes.
+- A polite live region announces the active position, title, and description.
+- `Alt + ArrowRight` validates and advances; `Alt + ArrowLeft` goes back.
+- `Ctrl/Cmd + Enter` validates and advances/submits.
+- Indicator tabs support arrows, Home, End, Enter, and Space.
+- Motion is reduced to zero-duration transitions when requested by the OS.
+
+## Architecture
+
+```text
 src/
-├── types/
-│   └── stepper.ts            # TypeScript interfaces & types
-├── components/
-│   ├── stepper/
-│   │   ├── MultiStepContext.tsx  # React Context & Provider
-│   │   ├── useMultiStep.ts       # Custom Hook for child views
-│   │   ├── MultiStepLayout.tsx   # Master Layout wrapper
-│   │   ├── ProgressTrack.tsx     # Fluid animated progress track bar
-│   │   ├── StepContent.tsx       # Motion slide/fade transition container
-│   │   ├── StepControls.tsx      # Navigation buttons & keyboard cues
-│   │   ├── StorageBadge.tsx      # Autosave indicator & draft recovery
-│   │   └── useStepStorage.ts     # LocalStorage synchronization utility
-│   └── demo/
-│       ├── steps/                # Realistic multi-step demo forms
-│       └── DemoControls.tsx      # Interactive state inspector & config
-├── test/
-│   ├── setup.ts              # Testing library setup
-│   └── stepper.test.tsx      # Unit test suite (10 test cases)
-└── App.tsx                   # Main demo application
+├── types/stepper.ts
+├── components/stepper/
+│   ├── MultiStepContext.tsx   # Store, validation, active graph, history engine
+│   ├── useStepStorage.ts      # SSR-safe session/local persistence adapter
+│   ├── useMultiStep.ts        # Typed store hook
+│   ├── MultiStepLayout.tsx    # Provider-aware layout shell
+│   ├── ProgressTrack.tsx      # Accessible active/invalid/disabled indicators
+│   ├── StepContent.tsx        # Focus management and reduced-motion transitions
+│   ├── StepControls.tsx       # Validation-gated previous/next/submit controls
+│   └── StorageBadge.tsx       # Autosave status and draft reset
+├── components/demo/           # Full example implementation
+└── test/stepper.test.tsx      # 14 behavior-focused integration tests
 ```
 
----
-
-## Unit Testing
-
-Run the automated test suite with Vitest:
-
-```bash
-npm test
-```
-
-The test suite covers:
-- Initial render & progress track bar calculation.
-- Conditional validation blocking invalid advance.
-- Forward & backward navigation with state preservation.
-- Direct step jumping and navigation guards.
-- Local storage persistence & automatic draft recovery.
-- Global keyboard navigation shortcuts (`Alt+ArrowRight`, `Alt+ArrowLeft`).
-- Asynchronous validation handling.
-- Automatic field error clearing on input change.
-- Form reset and cache cleanup.
+The storage adapter catches unavailable/quota errors, stored payloads are versioned, duplicate async navigation is locked, and a successful submission prevents the persistence effect from recreating the cleared draft.

@@ -1,12 +1,27 @@
-import React, { useContext } from 'react';
-import { MultiStepLayoutProps } from '../../types/stepper';
+import { useContext } from 'react';
+import type { ReactNode } from 'react';
+import type { MultiStepLayoutProps } from '../../types/stepper';
 import { MultiStepContext, MultiStepProvider } from './MultiStepContext';
 import { ProgressTrack } from './ProgressTrack';
 import { StepContent } from './StepContent';
 import { StepControls } from './StepControls';
 import { StorageBadge } from './StorageBadge';
 
-export function MultiStepLayout<TData = any>(props: MultiStepLayoutProps<TData>) {
+interface LayoutViewProps {
+  className?: string;
+  header?: ReactNode;
+  footer?: ReactNode;
+  showProgressTrack?: boolean;
+  showStepIndicators?: boolean;
+  showControls?: boolean;
+  nextLabel?: string;
+  prevLabel?: string;
+  submitLabel?: string;
+  children?: ReactNode;
+}
+
+/** Main wizard shell. It creates a provider unless already composed inside one. */
+export function MultiStepLayout<TData>(props: MultiStepLayoutProps<TData>) {
   const existingContext = useContext(MultiStepContext);
 
   if (existingContext) {
@@ -16,38 +31,46 @@ export function MultiStepLayout<TData = any>(props: MultiStepLayoutProps<TData>)
   const {
     steps,
     initialData,
-    initialStep = 0,
-    storageKey = 'multistep_wizard_state',
-    storageVersion = 1,
-    persistState = true,
-    allowNonLinearNavigation = false,
-    variant = 'pills',
-    orientation = 'horizontal',
+    initialStep,
+    storageKey,
+    storageVersion,
+    storageType,
+    persistState,
+    allowNonLinearNavigation,
+    variant,
+    orientation,
+    syncWithUrl,
+    stepQueryParam,
+    urlStepMode,
     onStepChange,
     onComplete,
-    ...restProps
+    ...viewProps
   } = props;
 
   return (
-    <MultiStepProvider
+    <MultiStepProvider<TData>
       steps={steps}
       initialData={initialData}
       initialStep={initialStep}
       storageKey={storageKey}
       storageVersion={storageVersion}
+      storageType={storageType}
       persistState={persistState}
       allowNonLinearNavigation={allowNonLinearNavigation}
       variant={variant}
       orientation={orientation}
+      syncWithUrl={syncWithUrl}
+      stepQueryParam={stepQueryParam}
+      urlStepMode={urlStepMode}
       onStepChange={onStepChange}
       onComplete={onComplete}
     >
-      <MultiStepLayoutInner {...restProps} />
+      <MultiStepLayoutInner {...viewProps} />
     </MultiStepProvider>
   );
 }
 
-function MultiStepLayoutInner<TData = any>({
+function MultiStepLayoutInner({
   className = '',
   header,
   footer,
@@ -58,18 +81,14 @@ function MultiStepLayoutInner<TData = any>({
   prevLabel,
   submitLabel,
   children,
-}: Partial<MultiStepLayoutProps<TData>>) {
-  const context = useContext(MultiStepContext);
-
+}: LayoutViewProps) {
   return (
-    <div
+    <section
       id="multistep-layout-root"
+      aria-label="Multi-step form"
       className={`w-full max-w-3xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-6 sm:p-8 md:p-9 ${className}`}
     >
-      {/* Custom or Default Header with Storage Badge */}
-      {header !== undefined ? (
-        header
-      ) : (
+      {header !== undefined ? header : (
         <div className="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
           <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Interactive Setup Wizard
@@ -78,26 +97,14 @@ function MultiStepLayoutInner<TData = any>({
         </div>
       )}
 
-      {/* Fluid Animated Progress Track */}
       {showProgressTrack && (
-        <ProgressTrack
-          className="mb-8"
-          showIndicators={showStepIndicators}
-        />
+        <ProgressTrack className="mb-8" showIndicators={showStepIndicators} />
       )}
 
-      {/* Active Step Content */}
-      {children ? (
-        children
-      ) : (
-        <StepContent className="min-h-[280px]" />
-      )}
+      {children ?? <StepContent className="min-h-[280px]" />}
 
-      {/* Footer Navigation Controls */}
       {showControls && (
-        footer !== undefined ? (
-          footer
-        ) : (
+        footer !== undefined ? footer : (
           <StepControls
             nextLabel={nextLabel}
             prevLabel={prevLabel}
@@ -105,7 +112,6 @@ function MultiStepLayoutInner<TData = any>({
           />
         )
       )}
-    </div>
+    </section>
   );
 }
-

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Edit2, AlertCircle, Shield, Layers, User } from 'lucide-react';
+import { Edit2, AlertCircle, Shield, Layers, User } from 'lucide-react';
 import { useMultiStep } from '../../stepper/useMultiStep';
 
 export const ReviewSubmitStep: React.FC = () => {
@@ -95,7 +95,8 @@ export const ReviewSubmitStep: React.FC = () => {
         </dl>
       </div>
 
-      {/* Security Summary */}
+      {/* Security is a conditional branch for production deployments. */}
+      {formData.project?.environment === 'production' && (
       <div className="p-4 rounded-lg border border-slate-200 bg-white">
         <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
@@ -132,6 +133,7 @@ export const ReviewSubmitStep: React.FC = () => {
           </div>
         </dl>
       </div>
+      )}
 
       {/* Agreement Checkbox */}
       <div className="pt-2">
