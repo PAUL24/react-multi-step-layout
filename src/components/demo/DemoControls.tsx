@@ -4,10 +4,6 @@ import {
   Keyboard,
   Settings2,
   Trash2,
-  CheckCircle2,
-  XCircle,
-  Eye,
-  Info,
 } from 'lucide-react';
 import { useMultiStep } from '../stepper/useMultiStep';
 
@@ -16,8 +12,6 @@ interface DemoControlsProps {
   setAllowNonLinear: (val: boolean) => void;
   persistState: boolean;
   setPersistState: (val: boolean) => void;
-  orientation: 'horizontal' | 'vertical';
-  setOrientation: (val: 'horizontal' | 'vertical') => void;
 }
 
 export const DemoControls: React.FC<DemoControlsProps> = ({
@@ -25,27 +19,18 @@ export const DemoControls: React.FC<DemoControlsProps> = ({
   setAllowNonLinear,
   persistState,
   setPersistState,
-  orientation,
-  setOrientation,
 }) => {
   const {
     currentStep,
     totalSteps,
+    activeStepCount,
     progress,
-    isFirstStep,
-    isLastStep,
-    isCompleted,
     completedSteps,
-    visitedSteps,
     formData,
     errors,
-    isValidating,
-    lastSavedAt,
     resetProgress,
-    clearPersistedStorage,
   } = useMultiStep();
 
-  const [showShortcuts, setShowShortcuts] = useState(false);
   const [activeTab, setActiveTab] = useState<'state' | 'config' | 'shortcuts'>('state');
 
   return (
@@ -106,7 +91,7 @@ export const DemoControls: React.FC<DemoControlsProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
               <div className="p-2.5 rounded-md bg-slate-50 border border-slate-200">
                 <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Active Index</span>
-                <span className="text-sm font-mono font-bold text-slate-900">{currentStep} (of {totalSteps - 1})</span>
+                <span className="text-sm font-mono font-bold text-slate-900">{currentStep} ({activeStepCount}/{totalSteps} active)</span>
               </div>
               <div className="p-2.5 rounded-md bg-slate-50 border border-slate-200">
                 <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Track Progress</span>
@@ -168,11 +153,11 @@ export const DemoControls: React.FC<DemoControlsProps> = ({
                 />
               </label>
 
-              {/* Toggle Local Persistence */}
+              {/* Toggle session persistence */}
               <label className="p-3 rounded-md border border-slate-200 flex items-center justify-between cursor-pointer hover:bg-slate-50">
                 <div>
-                  <span className="font-semibold text-slate-900 block">LocalStorage Autosave</span>
-                  <span className="text-slate-500 text-[11px]">Persists step & inputs across refresh</span>
+                  <span className="font-semibold text-slate-900 block">Session Autosave</span>
+                  <span className="text-slate-500 text-[11px]">Restores step and inputs after refresh</span>
                 </div>
                 <input
                   type="checkbox"

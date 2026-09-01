@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Key, Lock, BellRing, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Lock, AlertCircle } from 'lucide-react';
 import { useMultiStep } from '../../stepper/useMultiStep';
 
 export interface SecurityFormData {
@@ -21,7 +21,10 @@ export const SecurityConfigStep: React.FC = () => {
     auditLogging: true,
   };
 
-  const handleChange = (field: keyof SecurityFormData, value: any) => {
+  const handleChange = <K extends keyof SecurityFormData>(
+    field: K,
+    value: SecurityFormData[K]
+  ) => {
     const current = formData.security || {
       twoFactorAuth: true,
       apiKeyScopes: ['read', 'write'],

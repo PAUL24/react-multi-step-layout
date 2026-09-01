@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Save, RefreshCw, X } from 'lucide-react';
+import { useState } from 'react';
+import { Save } from 'lucide-react';
 import { useMultiStep } from './useMultiStep';
 
-export const StorageBadge: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { lastSavedAt, clearPersistedStorage, resetProgress } = useMultiStep();
+export function StorageBadge({ className = '' }: { className?: string }) {
+  const { lastSavedAt, resetProgress } = useMultiStep();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   if (!lastSavedAt) return null;
@@ -48,11 +48,11 @@ export const StorageBadge: React.FC<{ className?: string }> = ({ className = '' 
           type="button"
           onClick={() => setShowClearConfirm(true)}
           className="text-slate-500 hover:text-slate-900 hover:underline text-[11px] ml-1 cursor-pointer font-medium"
-          title="Clear local storage cache"
+          title="Clear saved session draft"
         >
           Clear
         </button>
       )}
     </div>
   );
-};
+}

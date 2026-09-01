@@ -1,171 +1,166 @@
-import React from 'react';
+import type React from 'react';
 
-/**
- * Validation result returned by step validation functions.
- * Can be a boolean, an error message string, an object map of field-level errors, or null/undefined.
- */
+export type ValidationErrors = Record<string, string>;
+
+/** A validator may return a field map, a form-level message, or a truthy result. */
 export type ValidationResult =
   | boolean
   | string
-  | Record<string, string>
+  | ValidationErrors
   | null
   | undefined;
 
-export interface ValidationContext<TData = any> {
+export type StepStatus =
+  | 'upcoming'
+  | 'current'
+  | 'completed'
+  | 'invalid'
+  | 'disabled';
+
+export type WizardOrientation = 'horizontal' | 'vertical';
+export type WizardVariant = 'pills' | 'numbered' | 'dots' | 'minimal';
+export type WizardStorageType = 'sessionStorage' | 'localStorage';
+export type UrlStepMode = 'id' | 'index';
+export type HistoryMode = 'push' | 'replace' | 'none';
+
+export type DataUpdater<TData> = (
+  updater: Partial<TData> | ((previous: TData) => Partial<TData>)
+) => void;
+
+export interface StepEvaluationContext<TData> {
   stepIndex: number;
+  step: StepDefinition<TData>;
+  steps: readonly StepDefinition<TData>[];
+}
+
+export interface ValidationContext<TData>
+  extends StepEvaluationContext<TData> {
   totalSteps: number;
+  activeStepIndices: readonly number[];
   allData: TData;
 }
 
-export type StepValidator<TData = any> = (
+export interface StepComponentProps<TData> {
+  data: TData;
+  updateData: DataUpdater<TData>;
+  errors: ValidationErrors;
+  step: StepDefinition<TData>;
+  stepIndex: number;
+}
+
+export type StepValidator<TData> = (
   data: TData,
   context: ValidationContext<TData>
 ) => ValidationResult | Promise<ValidationResult>;
 
-export interface StepDefinition<TData = any> {
-  /** Unique identifier for the step */
+export type StepAvailabilityPredicate<TData> = (
+  data: TData,
+  context: StepEvaluationContext<TData>
+) => boolean;
+
+export interface StepDefinition<TData = unknown> {
+  /** Stable ID used by persistence, DOM relationships, and URL bookmarks. */
   id: string;
-  /** Human-readable title */
   title: string;
-  /** Optional subtitle or description */
   description?: string;
-  /** Optional category or sub-label (e.g. "Security", "Phase 1") */
   subLabel?: string;
-  /** Optional icon component */
   icon?: React.ComponentType<{ className?: string }>;
-  /** Component or render function to display for this step */
-  component: React.ComponentType<any> | React.ReactNode;
-  /** Optional validation function executed before advancing */
+  /** Steps can consume these props or call useMultiStep<TData>(). */
+  component: React.ComponentType<StepComponentProps<TData>> | React.ReactNode;
+  /** Runs before leaving this step in the forward direction or submitting. */
   validate?: StepValidator<TData>;
-  /** Whether this step is optional */
+  /** A skipped step remains visible as unavailable in the progress indicator. */
+  shouldSkip?: StepAvailabilityPredicate<TData>;
+  /** Equivalent positive-form predicate for conditional branching. */
+  isEnabled?: StepAvailabilityPredicate<TData>;
   optional?: boolean;
 }
 
-export type StepStatus = 'upcoming' | 'current' | 'completed' | 'invalid';
-
-export interface MultiStepState<TData = any> {
-  currentStep: number;
-  completedSteps: number[];
-  visitedSteps: number[];
-  formData: TData;
-  errors: Record<string, string>;
-  isValidating: boolean;
-  isSubmitting: boolean;
-  direction: 1 | -1;
-  lastSavedAt: number | null;
+export interface GoToStepOptions {
+  /** Intended for trusted flows such as restoring application-controlled state. */
+  skipValidation?: boolean;
+  history?: HistoryMode;
 }
 
-export interface MultiStepContextValue<TData = any> {
-  /** Current active step index (0-based) */
+export interface MultiStepContextValue<TData = unknown> {
+  /** Index in the original step configuration array. */
   currentStep: number;
-  /** Total number of steps */
+  /** Zero-based position among currently active steps. */
+  currentStepPosition: number;
+  /** Total number of configured steps, including conditionally disabled steps. */
   totalSteps: number;
-  /** Current step configuration */
+  activeStepCount: number;
   currentStepConfig: StepDefinition<TData>;
-  /** Step array definition */
-  steps: StepDefinition<TData>[];
-  /** Progress percentage between 0 and 100 */
+  steps: readonly StepDefinition<TData>[];
+  activeSteps: readonly StepDefinition<TData>[];
+  activeStepIndices: readonly number[];
   progress: number;
-  /** True if currently on the first step */
   isFirstStep: boolean;
-  /** True if currently on the last step */
   isLastStep: boolean;
-  /** True if all steps have been completed */
   isCompleted: boolean;
-  /** Indices of completed steps */
-  completedSteps: number[];
-  /** Indices of visited steps */
-  visitedSteps: number[];
-  /** Current shared form data */
+  hasSubmitted: boolean;
+  completedSteps: readonly number[];
+  visitedSteps: readonly number[];
+  invalidSteps: readonly number[];
   formData: TData;
-  /** Update partial form data */
-  updateFormData: (
-    updater: Partial<TData> | ((prev: TData) => Partial<TData>)
-  ) => void;
-  /** Reset form data and step index */
+  updateFormData: DataUpdater<TData>;
   resetProgress: () => void;
-  /** Advance to the next step after running current step validation */
   nextStep: () => Promise<boolean>;
-  /** Navigate back to the previous step */
   prevStep: () => void;
-  /** Jump directly to a specific step index */
   goToStep: (
     targetIndex: number,
-    options?: { skipValidation?: boolean }
+    options?: GoToStepOptions
   ) => Promise<boolean>;
-  /** Field-level errors for the current step */
-  errors: Record<string, string>;
-  /** Set or update errors */
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  /** Set a single field error */
+  errors: ValidationErrors;
+  setErrors: React.Dispatch<React.SetStateAction<ValidationErrors>>;
   setFieldError: (field: string, message: string) => void;
-  /** Clear specific field errors */
   clearFieldError: (field: string) => void;
-  /** Clear all current errors */
   clearErrors: () => void;
-  /** True when async validation is running */
   isValidating: boolean;
-  /** True when final form submission is in progress */
   isSubmitting: boolean;
-  /** Set submission loading state */
-  setIsSubmitting: (isSubmitting: boolean) => void;
-  /** Transition direction: 1 (forward) or -1 (backward) */
   direction: 1 | -1;
-  /** Timestamp when state was last persisted to localStorage */
   lastSavedAt: number | null;
-  /** Clear persisted localStorage cache */
   clearPersistedStorage: () => void;
-  /** Trigger validation on current step without advancing */
   validateCurrentStep: () => Promise<boolean>;
-  /** Get status of a specific step index */
   getStepStatus: (index: number) => StepStatus;
-  /** Orientation of the layout */
-  orientation: 'horizontal' | 'vertical';
-  /** Visual variant of step indicators */
-  variant: 'pills' | 'numbered' | 'dots' | 'minimal';
+  isStepEnabled: (index: number) => boolean;
+  orientation: WizardOrientation;
+  variant: WizardVariant;
 }
 
-export interface MultiStepLayoutProps<TData = any> {
-  /** Array of step configurations */
-  steps: StepDefinition<TData>[];
-  /** Initial form data state */
+export interface MultiStepProviderProps<TData = unknown> {
+  steps: readonly StepDefinition<TData>[];
   initialData: TData;
-  /** Initial step index (defaults to 0) */
   initialStep?: number;
-  /** Storage key for localStorage persistence */
   storageKey?: string;
-  /** Schema version for cache invalidation */
   storageVersion?: number;
-  /** Enable automatic persistence to localStorage (defaults to true) */
+  /** Defaults to sessionStorage to retain refreshes without leaking across sessions. */
+  storageType?: WizardStorageType;
   persistState?: boolean;
-  /** Allow clicking on future or unvisited steps without strict sequential validation */
   allowNonLinearNavigation?: boolean;
-  /** Visual progress bar variant */
-  variant?: 'pills' | 'numbered' | 'dots' | 'minimal';
-  /** Layout orientation */
-  orientation?: 'horizontal' | 'vertical';
-  /** Callback fired whenever step changes */
+  variant?: WizardVariant;
+  orientation?: WizardOrientation;
+  /** Synchronize the active step with a query parameter and popstate. */
+  syncWithUrl?: boolean;
+  stepQueryParam?: string;
+  /** ID mode is resilient to reordered or newly inserted steps. */
+  urlStepMode?: UrlStepMode;
   onStepChange?: (newStepIndex: number, currentData: TData) => void;
-  /** Callback fired when final step is submitted successfully */
   onComplete?: (finalData: TData) => void | Promise<void>;
-  /** Optional custom CSS classes */
+  children: React.ReactNode;
+}
+
+export interface MultiStepLayoutProps<TData = unknown>
+  extends Omit<MultiStepProviderProps<TData>, 'children'> {
   className?: string;
-  /** Optional custom header above progress bar */
   header?: React.ReactNode;
-  /** Optional custom footer below step content */
   footer?: React.ReactNode;
-  /** Show top progress track bar (defaults to true) */
   showProgressTrack?: boolean;
-  /** Show step indicator buttons (defaults to true) */
   showStepIndicators?: boolean;
-  /** Show default next/prev buttons (defaults to true) */
   showControls?: boolean;
-  /** Custom label for Next button */
   nextLabel?: string;
-  /** Custom label for Previous button */
   prevLabel?: string;
-  /** Custom label for Submit button */
   submitLabel?: string;
-  /** Render children instead of default step component */
+  /** Replaces the default StepContent while retaining the layout shell. */
   children?: React.ReactNode;
 }

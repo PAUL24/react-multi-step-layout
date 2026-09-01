@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { CheckCircle2, Copy, Check, RotateCcw, Download } from 'lucide-react';
 
-interface SuccessViewProps {
-  data: any;
+interface SuccessViewProps<TData> {
+  data: TData;
   onRestart: () => void;
 }
 
-export const SuccessView: React.FC<SuccessViewProps> = ({ data, onRestart }) => {
+export function SuccessView<TData>({ data, onRestart }: SuccessViewProps<TData>) {
   const [copied, setCopied] = useState(false);
 
   const jsonString = JSON.stringify(data, null, 2);
@@ -41,7 +41,7 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onRestart }) => 
         Workspace Configured Successfully!
       </h2>
       <p className="text-sm text-slate-500 max-w-md mx-auto mb-6">
-        Your multi-step form data has been validated and committed. All draft local storage caches have been finalized.
+        Your multi-step form data has been validated and committed. The session draft has been cleared.
       </p>
 
       {/* JSON Output Payload */}
@@ -85,4 +85,4 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onRestart }) => 
       </div>
     </div>
   );
-};
+}

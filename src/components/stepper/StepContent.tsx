@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useEffect, useRef } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import type { StepComponentProps } from '../../types/stepper';
 import { useMultiStep } from './useMultiStep';
 
 interface StepContentProps {
@@ -7,116 +8,99 @@ interface StepContentProps {
   enableKeyboardNavigation?: boolean;
 }
 
-export const StepContent: React.FC<StepContentProps> = ({
+export function StepContent({
   className = '',
   enableKeyboardNavigation = true,
-}) => {
+}: StepContentProps) {
+  const context = useMultiStep();
   const {
     currentStep,
+    currentStepPosition,
     currentStepConfig,
-    totalSteps,
+    activeStepCount,
     direction,
     nextStep,
     prevStep,
     isSubmitting,
     isValidating,
-  } = useMultiStep();
-
-  const containerRef = useRef<HTMLDivElement>(null);
+  } = context;
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const shouldReduceMotion = useReducedMotion();
 
-  // Focus heading or container when step changes for accessibility
+  // Moving focus makes the new context immediately discoverable to keyboard and
+  // screen-reader users. The heading itself is not added to the normal tab order.
   useEffect(() => {
-    if (headingRef.current) {
-      headingRef.current.focus();
-    } else if (containerRef.current) {
-      containerRef.current.focus();
-    }
+    headingRef.current?.focus();
   }, [currentStep]);
 
-  // Global keyboard shortcuts within the wizard container
   useEffect(() => {
     if (!enableKeyboardNavigation) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts if user is typing in an input/textarea
-      const target = e.target as HTMLElement;
-      const isInputField =
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.isContentEditable;
-
-      // Alt + ArrowRight -> Next step
-      if (e.altKey && e.key === 'ArrowRight' && !isSubmitting && !isValidating) {
-        e.preventDefault();
-        nextStep();
-      }
-      // Alt + ArrowLeft -> Previous step
-      else if (e.altKey && e.key === 'ArrowLeft' && !isSubmitting && !isValidating) {
-        e.preventDefault();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isSubmitting || isValidating) return;
+      if (event.altKey && event.key === 'ArrowRight') {
+        event.preventDefault();
+        void nextStep();
+      } else if (event.altKey && event.key === 'ArrowLeft') {
+        event.preventDefault();
         prevStep();
-      }
-      // Ctrl/Cmd + Enter -> Advance/Submit if in an input
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !isSubmitting && !isValidating) {
-        e.preventDefault();
-        nextStep();
+      } else if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        void nextStep();
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [enableKeyboardNavigation, isSubmitting, isValidating, nextStep, prevStep]);
 
-  const slideVariants = {
-    enter: (dir: number) => ({
-      x: dir > 0 ? 30 : -30,
-      opacity: 0,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-    },
-    exit: (dir: number) => ({
-      x: dir > 0 ? -30 : 30,
-      opacity: 0,
-    }),
-  };
-
   const StepComponent = currentStepConfig.component;
+  const componentProps: StepComponentProps<unknown> = {
+    data: context.formData,
+    updateData: context.updateFormData,
+    errors: context.errors,
+    step: currentStepConfig,
+    stepIndex: currentStep,
+  };
 
   return (
     <div
-      ref={containerRef}
-      id={`step-panel-${currentStepConfig.id || currentStep}`}
+      id={`step-panel-${currentStepConfig.id}`}
       role="tabpanel"
-      aria-labelledby={`step-tab-${currentStepConfig.id || currentStep}`}
-      tabIndex={-1}
-      className={`relative w-full outline-none focus:outline-none ${className}`}
+      aria-labelledby={`step-tab-${currentStepConfig.id}`}
+      aria-busy={isValidating || isSubmitting}
+      className={`relative w-full outline-none ${className}`}
     >
-      {/* Screen Reader Live Announcement */}
       <div className="sr-only" aria-live="polite" aria-atomic="true">
-        Step {currentStep + 1} of {totalSteps}: {currentStepConfig.title}.{' '}
-        {currentStepConfig.description || ''}
+        Step {currentStepPosition + 1} of {activeStepCount}: {currentStepConfig.title}.
+        {' '}{currentStepConfig.description ?? ''}
       </div>
 
-      <AnimatePresence mode="wait" custom={direction}>
+      <AnimatePresence mode="wait" custom={direction} initial={false}>
         <motion.div
-          key={currentStepConfig.id || currentStep}
+          key={currentStepConfig.id}
           custom={direction}
-          variants={slideVariants}
+          variants={{
+            enter: (transitionDirection: number) => ({
+              x: shouldReduceMotion ? 0 : transitionDirection > 0 ? 30 : -30,
+              opacity: shouldReduceMotion ? 1 : 0,
+            }),
+            center: { x: 0, opacity: 1 },
+            exit: (transitionDirection: number) => ({
+              x: shouldReduceMotion ? 0 : transitionDirection > 0 ? -30 : 30,
+              opacity: shouldReduceMotion ? 1 : 0,
+            }),
+          }}
           initial="enter"
           animate="center"
           exit="exit"
-          transition={{ duration: 0.22, ease: 'easeOut' }}
+          onAnimationComplete={() => headingRef.current?.focus()}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.22, ease: 'easeOut' }}
           className="w-full"
         >
-          {/* Step Header */}
-          <div className="mb-6">
+          <header className="mb-6">
             <h2
               ref={headingRef}
               tabIndex={-1}
-              className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 outline-none focus-visible:ring-1 focus-visible:ring-neutral-400 rounded-md"
+              className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-md"
             >
               {currentStepConfig.title}
             </h2>
@@ -125,18 +109,15 @@ export const StepContent: React.FC<StepContentProps> = ({
                 {currentStepConfig.description}
               </p>
             )}
-          </div>
+          </header>
 
-          {/* Step Body */}
           <div className="w-full">
-            {typeof StepComponent === 'function' ? (
-              <StepComponent />
-            ) : React.isValidElement(StepComponent) ? (
-              StepComponent
-            ) : null}
+            {typeof StepComponent === 'function'
+              ? <StepComponent {...componentProps} />
+              : StepComponent}
           </div>
         </motion.div>
       </AnimatePresence>
     </div>
   );
-};
+}
